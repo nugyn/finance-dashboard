@@ -1,0 +1,165 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Indicator {
+  id        Int        @id @default(autoincrement())
+  key       String     @unique
+  label     String
+  category  String
+  unit      String?
+  sourceUrl String?
+  warnAbove Float?
+  badAbove  Float?
+  warnBelow Float?
+  badBelow  Float?
+  fetchCron String?
+  snapshots Snapshot[]
+  alerts    Alert[]
+}
+
+model Snapshot {
+  id          Int       @id @default(autoincrement())
+  indicatorId Int
+  value       Float
+  rawText     String?
+  signal      String
+  fetchedAt   DateTime  @default(now())
+  indicator   Indicator @relation(fields: [indicatorId], references: [id])
+}
+
+model Alert {
+  id          Int       @id @default(autoincrement())
+  indicatorId Int
+  signal      String
+  message     String
+  sentAt      DateTime  @default(now())
+  indicator   Indicator @relation(fields: [indicatorId], references: [id])
+}
+
+// Monthly snapshot from History sheet — the time-series backbone
+model MonthlySnapshot {
+  id                Int      @id @default(autoincrement())
+  date              DateTime @unique
+  etfValue          Float    @default(0)
+  etfGain           Float    @default(0)
+  etfContrib        Float    @default(0)
+  sharesValue       Float    @default(0)
+  sharesGain        Float    @default(0)
+  cryptoValue       Float    @default(0)
+  cryptoGain        Float    @default(0)
+  cashValue         Float    @default(0)
+  cashGain          Float    @default(0)
+  cashSavingsRate   Float    @default(0)
+  cashMonthlySpend  Float    @default(0)
+  cashNotes         String?
+  superValue        Float    @default(0)
+  superVolContrib   Float    @default(0)
+  superGain         Float    @default(0)
+  mfValue           Float    @default(0)
+  mfGain            Float    @default(0)
+  otherValue        Float    @default(0)
+  otherGain         Float    @default(0)
+  propertyValue     Float    @default(0)
+  propertyPurchase  Float    @default(0)
+  propertyEquity    Float    @default(0)
+  propertyGain      Float    @default(0)
+  mortgageBalance   Float    @default(0)
+  mortgageInterest  Float    @default(0)
+  mortgagePrincipal Float    @default(0)
+  liabilitiesTotal  Float    @default(0)
+  liabilitiesPaid   Float    @default(0)
+  salaryMonthly     Float    @default(0)
+}
+
+model AssetTransaction {
+  id         Int      @id @default(autoincrement())
+  assetClass String
+  ticker     String
+  name       String?
+  date       DateTime
+  units      Float
+  price      Float
+  brokerage  Float    @default(0)
+  orderValue Float
+}
+
+model Holding {
+  id           Int    @id @default(autoincrement())
+  assetClass   String
+  ticker       String @unique
+  name         String?
+  heldUnits    Float
+  avePrice     Float
+  currentValue Float
+  totalReturn  Float
+  returnPct    Float
+  targetAlloc  Float  @default(0)
+  mgmtFee      Float?
+}
+
+model BudgetItem {
+  id          Int    @id @default(autoincrement())
+  name        String
+  category    String
+  bankAccount String?
+  monthlyAmt  Float
+  yearlyAmt   Float
+  allocation  Float
+}
+
+model BudgetSummary {
+  id            Int   @id @default(autoincrement())
+  monthlyIncome Float
+  annualIncome  Float
+  savingsRate   Float
+  plannedSpend  Float
+  actualSpend6m Float
+}
+
+model DebtAccount {
+  id             Int       @id @default(autoincrement())
+  name           String
+  startDate      DateTime?
+  interestRate   Float     @default(0)
+  startBalance   Float
+  currentBalance Float
+  paid           Float
+  monthlyPayment Float     @default(0)
+  estimatedFinal DateTime?
+}
+
+model CashAccount {
+  id       Int    @id @default(autoincrement())
+  name     String
+  currency String @default("AUD")
+  balance  Float
+}
+
+model SideIncomeEntry {
+  id           Int      @id @default(autoincrement())
+  date         DateTime
+  sideIncome   Float    @default(0)
+  rentalIncome Float    @default(0)
+  notes        String?
+}
+
+model DividendEntry {
+  id          Int      @id @default(autoincrement())
+  paymentDate DateTime
+  ticker      String
+  holdingType String
+  netAmount   Float
+  fyYear      String?
+}
+
+model UserSettings {
+  id       Int    @id @default(autoincrement())
+  key      String @unique
+  value    String
+  category String
+}

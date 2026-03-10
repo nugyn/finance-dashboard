@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import Link from "next/link";
 import { fmt } from "@/lib/formatters";
 import { Section } from "@/components/shared/Section";
 import { Row } from "@/components/shared/Row";
@@ -129,6 +130,25 @@ export default function PropertyCalculator() {
 
   return (
     <div className="bg-gray-900 min-h-screen text-white font-sans p-4 max-w-2xl mx-auto">
+      {/* Top nav */}
+      <div className="flex items-center gap-4 mb-4 -mx-4 px-4 border-b border-gray-800 pb-3">
+        <span className="text-sm font-medium text-indigo-400 border-b-2 border-indigo-400 pb-px">
+          Property Calculator
+        </span>
+        <Link
+          href="/market-indicators"
+          className="text-sm text-gray-400 hover:text-gray-200 transition-colors"
+        >
+          Market Indicators
+        </Link>
+        <Link
+          href="/dashboard"
+          className="text-sm text-gray-400 hover:text-gray-200 transition-colors"
+        >
+          Dashboard
+        </Link>
+      </div>
+
       <div className="mb-6">
         <input
           type="text"

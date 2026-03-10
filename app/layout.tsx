@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Property Investment Calculator",
+  title: "Property Investment Dashboard",
   description: "Investment property analysis tool",
 };
 
