@@ -7,19 +7,20 @@ datasource db {
 }
 
 model Indicator {
-  id        Int        @id @default(autoincrement())
-  key       String     @unique
-  label     String
-  category  String
-  unit      String?
-  sourceUrl String?
-  warnAbove Float?
-  badAbove  Float?
-  warnBelow Float?
-  badBelow  Float?
-  fetchCron String?
-  snapshots Snapshot[]
-  alerts    Alert[]
+  id           Int        @id @default(autoincrement())
+  key          String     @unique
+  label        String
+  category     String
+  unit         String?
+  sourceUrl    String?
+  warnAbove    Float?
+  badAbove     Float?
+  warnBelow    Float?
+  badBelow     Float?
+  fetchCron    String?
+  alertEnabled Boolean    @default(true)
+  snapshots    Snapshot[]
+  alerts       Alert[]
 }
 
 model Snapshot {

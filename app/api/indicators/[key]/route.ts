@@ -37,7 +37,7 @@ export async function PUT(
     const body = await req.json();
 
     const fields = ["warnAbove", "badAbove", "warnBelow", "badBelow"] as const;
-    const data: Record<string, number | null> = {};
+    const data: Record<string, number | null | boolean> = {};
 
     for (const field of fields) {
       if (field in body) {
@@ -55,6 +55,10 @@ export async function PUT(
           data[field] = num;
         }
       }
+    }
+
+    if ("alertEnabled" in body) {
+      data.alertEnabled = Boolean(body.alertEnabled);
     }
 
     const indicator = await db.indicator.update({

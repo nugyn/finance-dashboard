@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { FETCHERS } from "@/lib/fetchers";
 import { evaluateSignal } from "@/lib/signals";
+import { checkAndAlert } from "@/lib/alerts";
 
 export async function POST(
   _req: Request,
@@ -31,6 +32,8 @@ export async function POST(
         signal,
       },
     });
+
+    await checkAndAlert(indicator, value, signal);
 
     return NextResponse.json({ snapshot, signal });
   } catch (err) {
