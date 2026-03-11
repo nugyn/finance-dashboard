@@ -27,7 +27,15 @@ interface IndicatorWithHistory extends IndicatorWithLatest {
   snapshots: Snapshot[];
 }
 
-type SubTab = "local" | "economic" | "trends" | "history";
+interface AnnotationEntry {
+  id: number;
+  text: string;
+  date: string;
+  indicatorId: number | null;
+  indicator: { key: string; label: string } | null;
+}
+
+type SubTab = "local" | "economic" | "trends" | "history" | "scenarios";
 
 const SIGNAL_COLORS: Record<string, string> = {
   ok: "#34d399",
@@ -38,8 +46,12 @@ const SIGNAL_COLORS: Record<string, string> = {
 export default function MarketIndicatorsPage() {
   const [indicators, setIndicators] = useState<IndicatorWithLatest[]>([]);
   const [history, setHistory] = useState<Record<string, IndicatorWithHistory>>({});
+  const [annotations, setAnnotations] = useState<AnnotationEntry[]>([]);
   const [activeTab, setActiveTab] = useState<SubTab>("local");
   const [loading, setLoading] = useState(true);
+  const [noteText, setNoteText] = useState("");
+  const [noteIndicator, setNoteIndicator] = useState<string>("");
+  const [addingNote, setAddingNote] = useState(false);
 
   const fetchAll = useCallback(async () => {
     try {
@@ -65,6 +77,10 @@ export default function MarketIndicatorsPage() {
 
   useEffect(() => {
     fetchAll();
+    fetch("/api/annotations")
+      .then((r) => r.json())
+      .then(setAnnotations)
+      .catch(() => {});
   }, [fetchAll]);
 
   function handleRefresh(key: string, newValue: number, signal: Signal) {
@@ -86,6 +102,36 @@ export default function MarketIndicatorsPage() {
     );
   }
 
+  async function handleAddNote() {
+    if (!noteText.trim()) return;
+    setAddingNote(true);
+    try {
+      const body: Record<string, unknown> = { text: noteText.trim() };
+      if (noteIndicator) {
+        const ind = indicators.find((i) => i.key === noteIndicator);
+        if (ind) body.indicatorId = ind.id;
+      }
+      const res = await fetch("/api/annotations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const created: AnnotationEntry = await res.json();
+      setAnnotations((prev) => [created, ...prev]);
+      setNoteText("");
+      setNoteIndicator("");
+    } catch {
+      // silent
+    } finally {
+      setAddingNote(false);
+    }
+  }
+
+  async function handleDeleteNote(id: number) {
+    await fetch(`/api/annotations?id=${id}`, { method: "DELETE" });
+    setAnnotations((prev) => prev.filter((a) => a.id !== id));
+  }
+
   const local = indicators.filter((i) => i.category === "local");
   const economic = indicators.filter((i) => i.category === "economic");
 
@@ -94,6 +140,7 @@ export default function MarketIndicatorsPage() {
     { id: "economic", label: "Economic" },
     { id: "trends", label: "Trends" },
     { id: "history", label: "Signal History" },
+    { id: "scenarios", label: "Scenarios" },
   ];
 
   const signalCounts = indicators.reduce(
@@ -109,7 +156,7 @@ export default function MarketIndicatorsPage() {
     <div className="min-h-screen bg-gray-900 text-gray-100">
       {/* Top nav */}
       <div className="border-b border-gray-800">
-        <div className="max-w-5xl mx-auto px-4 flex items-center gap-6 h-14">
+        <div className="max-w-5xl mx-auto px-4 flex items-center gap-4 sm:gap-6 h-14 overflow-x-auto">
           <Link
             href="/"
             className="text-sm text-gray-400 hover:text-gray-200 transition-colors"
@@ -147,7 +194,7 @@ export default function MarketIndicatorsPage() {
 
         {/* Signal summary */}
         {!loading && indicators.length > 0 && (
-          <div className="flex gap-4 mb-6">
+          <div className="flex items-center gap-4 mb-6">
             {[
               { key: "ok", label: "OK", color: "text-emerald-400" },
               { key: "warn", label: "Warning", color: "text-yellow-400" },
@@ -160,6 +207,12 @@ export default function MarketIndicatorsPage() {
                 <span className="text-xs text-gray-500">{label}</span>
               </div>
             ))}
+            <a
+              href="/api/export/indicators"
+              className="ml-auto text-xs px-3 py-1.5 border border-gray-600 text-gray-400 hover:text-gray-200 hover:border-gray-400 rounded transition-colors"
+            >
+              Export CSV
+            </a>
           </div>
         )}
 
@@ -284,6 +337,70 @@ export default function MarketIndicatorsPage() {
                 );
               })}
             </div>
+
+            {/* Annotations */}
+            <div className="mt-6">
+              <h3 className="text-xs font-bold uppercase tracking-widest text-indigo-400 mb-3">
+                Notes & Annotations
+              </h3>
+              <div className="flex gap-2 mb-3">
+                <select
+                  value={noteIndicator}
+                  onChange={(e) => setNoteIndicator(e.target.value)}
+                  className="bg-gray-800 border border-gray-600 rounded px-2 py-1.5 text-xs text-gray-300 focus:border-indigo-400 focus:outline-none"
+                >
+                  <option value="">General</option>
+                  {indicators.map((ind) => (
+                    <option key={ind.key} value={ind.key}>{ind.label}</option>
+                  ))}
+                </select>
+                <input
+                  type="text"
+                  value={noteText}
+                  onChange={(e) => setNoteText(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleAddNote()}
+                  placeholder="Add a note (e.g. 'received private offer 700k')"
+                  className="flex-1 bg-gray-800 border border-gray-600 rounded px-2 py-1.5 text-sm text-gray-200 placeholder-gray-600 focus:border-indigo-400 focus:outline-none"
+                />
+                <button
+                  onClick={handleAddNote}
+                  disabled={addingNote || !noteText.trim()}
+                  className="text-xs px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded transition-colors whitespace-nowrap"
+                >
+                  Add Note
+                </button>
+              </div>
+              {annotations.length > 0 && (
+                <div className="space-y-1">
+                  {annotations.map((note) => (
+                    <div
+                      key={note.id}
+                      className="flex items-start gap-2 px-3 py-2 bg-gray-800/40 rounded text-sm group"
+                    >
+                      <span className="text-xs text-gray-500 font-mono shrink-0 pt-0.5">
+                        {new Date(note.date).toLocaleDateString("en-AU", {
+                          day: "numeric",
+                          month: "short",
+                        })}
+                      </span>
+                      {note.indicator && (
+                        <span className="text-xs text-indigo-400 shrink-0 pt-0.5">
+                          {note.indicator.label}
+                        </span>
+                      )}
+                      <span className="text-gray-300 flex-1">{note.text}</span>
+                      <button
+                        onClick={() => handleDeleteNote(note.id)}
+                        className="text-gray-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity text-xs shrink-0"
+                        title="Delete note"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         )}
 
@@ -310,10 +427,10 @@ export default function MarketIndicatorsPage() {
 
               return (
                 <div className="space-y-1">
-                  <div className="grid grid-cols-[1fr_2fr_1fr_1fr] gap-2 px-3 py-2 text-xs text-gray-500 uppercase tracking-wider border-b border-gray-800">
+                  <div className="grid grid-cols-[auto_1fr_auto] sm:grid-cols-[1fr_2fr_1fr_1fr] gap-2 px-3 py-2 text-xs text-gray-500 uppercase tracking-wider border-b border-gray-800">
                     <span>Date</span>
                     <span>Indicator</span>
-                    <span className="text-right">Value</span>
+                    <span className="text-right hidden sm:block">Value</span>
                     <span className="text-right">Signal</span>
                   </div>
                   {allEvents.map((evt, i) => {
@@ -322,7 +439,7 @@ export default function MarketIndicatorsPage() {
                     return (
                       <div
                         key={`${evt.key}-${i}`}
-                        className="grid grid-cols-[1fr_2fr_1fr_1fr] gap-2 px-3 py-2 text-sm border-b border-gray-800/50 hover:bg-gray-800/30"
+                        className="grid grid-cols-[auto_1fr_auto] sm:grid-cols-[1fr_2fr_1fr_1fr] gap-2 px-3 py-2 text-sm border-b border-gray-800/50 hover:bg-gray-800/30"
                       >
                         <span className="text-xs text-gray-500 font-mono">
                           {new Date(evt.fetchedAt).toLocaleDateString("en-AU", {
@@ -332,7 +449,7 @@ export default function MarketIndicatorsPage() {
                           })}
                         </span>
                         <span className="text-gray-300">{evt.label}</span>
-                        <span className="text-right font-mono text-gray-200">
+                        <span className="text-right font-mono text-gray-200 hidden sm:block">
                           {evt.unit === "$"
                             ? `$${Math.round(evt.value).toLocaleString("en-AU")}`
                             : evt.unit === "%"
@@ -367,6 +484,181 @@ export default function MarketIndicatorsPage() {
             })()}
           </div>
         )}
+
+        {/* Scenarios tab */}
+        {activeTab === "scenarios" && <RateScenarios />}
+      </div>
+    </div>
+  );
+}
+
+function RateScenarios() {
+  const [rate, setRate] = useState(5.96);
+  const [loanBalance, setLoanBalance] = useState(475000);
+  const [monthlyRent, setMonthlyRent] = useState(1800);
+  const [propertyValue, setPropertyValue] = useState(680000);
+
+  const scenarios = [
+    { label: "Rate cut −0.50%", delta: -0.50 },
+    { label: "Rate cut −0.25%", delta: -0.25 },
+    { label: "Current rate", delta: 0 },
+    { label: "Rate hike +0.25%", delta: 0.25 },
+    { label: "Rate hike +0.50%", delta: 0.50 },
+    { label: "Rate hike +1.00%", delta: 1.00 },
+    { label: "Rate hike +1.50%", delta: 1.50 },
+  ];
+
+  function calcMonthly(r: number) {
+    const mr = r / 100 / 12;
+    const n = 360;
+    const repayment = mr > 0 ? (loanBalance * (mr * Math.pow(1 + mr, n))) / (Math.pow(1 + mr, n) - 1) : loanBalance / n;
+    const interest = loanBalance * (r / 100 / 12);
+    const monthlyRates = 1400 / 12;
+    const monthlyInsurance = 1300 / 12;
+    const pmFees = 130;
+    const totalCost = repayment + monthlyRates + monthlyInsurance + pmFees;
+    const shortfall = totalCost - monthlyRent;
+    return { repayment, interest, totalCost, shortfall };
+  }
+
+  const current = calcMonthly(rate);
+
+  return (
+    <div>
+      <div className="mb-6">
+        <h2 className="text-sm font-medium text-gray-200 mb-3">Rate Hike Impact Calculator</h2>
+        <p className="text-xs text-gray-500 mb-4">
+          See how RBA rate changes affect your monthly holding cost.
+        </p>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+          <div>
+            <label className="text-xs text-gray-500 block mb-1">Current Rate %</label>
+            <input
+              type="number"
+              step="0.01"
+              value={rate}
+              onChange={(e) => setRate(Number(e.target.value))}
+              className="w-full bg-gray-800 border border-gray-600 rounded px-2 py-1.5 text-sm font-mono text-gray-200 focus:border-indigo-400 focus:outline-none"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-gray-500 block mb-1">Loan Balance</label>
+            <input
+              type="number"
+              step="1000"
+              value={loanBalance}
+              onChange={(e) => setLoanBalance(Number(e.target.value))}
+              className="w-full bg-gray-800 border border-gray-600 rounded px-2 py-1.5 text-sm font-mono text-gray-200 focus:border-indigo-400 focus:outline-none"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-gray-500 block mb-1">Monthly Rent</label>
+            <input
+              type="number"
+              step="50"
+              value={monthlyRent}
+              onChange={(e) => setMonthlyRent(Number(e.target.value))}
+              className="w-full bg-gray-800 border border-gray-600 rounded px-2 py-1.5 text-sm font-mono text-gray-200 focus:border-indigo-400 focus:outline-none"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-gray-500 block mb-1">Property Value</label>
+            <input
+              type="number"
+              step="5000"
+              value={propertyValue}
+              onChange={(e) => setPropertyValue(Number(e.target.value))}
+              className="w-full bg-gray-800 border border-gray-600 rounded px-2 py-1.5 text-sm font-mono text-gray-200 focus:border-indigo-400 focus:outline-none"
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        {scenarios.map((s) => {
+          const newRate = rate + s.delta;
+          const calc = calcMonthly(newRate);
+          const diffFromCurrent = calc.shortfall - current.shortfall;
+          const isCurrent = s.delta === 0;
+          const isPositive = s.delta < 0;
+          const yield_ = ((monthlyRent * 12) / propertyValue * 100);
+
+          return (
+            <div
+              key={s.label}
+              className={`grid grid-cols-[1fr_auto_auto_auto] sm:grid-cols-[2fr_1fr_1fr_1fr_1fr] gap-3 px-4 py-3 rounded-lg border ${
+                isCurrent
+                  ? "bg-indigo-400/10 border-indigo-400/30"
+                  : "bg-gray-800/60 border-gray-700"
+              }`}
+            >
+              <div>
+                <div className="text-sm text-gray-200">{s.label}</div>
+                <div className="text-xs text-gray-500 font-mono">{newRate.toFixed(2)}%</div>
+              </div>
+              <div className="text-right">
+                <div className="text-xs text-gray-500">Repayment</div>
+                <div className="text-sm font-mono text-gray-200">
+                  ${Math.round(calc.repayment).toLocaleString("en-AU")}
+                </div>
+              </div>
+              <div className="text-right hidden sm:block">
+                <div className="text-xs text-gray-500">Total Cost</div>
+                <div className="text-sm font-mono text-gray-200">
+                  ${Math.round(calc.totalCost).toLocaleString("en-AU")}
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="text-xs text-gray-500">Shortfall</div>
+                <div className={`text-sm font-mono font-bold ${
+                  calc.shortfall <= 0 ? "text-emerald-400" : "text-red-400"
+                }`}>
+                  ${Math.round(Math.abs(calc.shortfall)).toLocaleString("en-AU")}
+                  {calc.shortfall <= 0 ? " surplus" : "/mo"}
+                </div>
+              </div>
+              <div className="text-right hidden sm:block">
+                <div className="text-xs text-gray-500">vs Current</div>
+                <div className={`text-sm font-mono ${
+                  diffFromCurrent < -1 ? "text-emerald-400" : diffFromCurrent > 1 ? "text-red-400" : "text-gray-400"
+                }`}>
+                  {isCurrent ? "—" : `${diffFromCurrent > 0 ? "+" : ""}$${Math.round(Math.abs(diffFromCurrent)).toLocaleString("en-AU")}`}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-3">
+        <div className="bg-gray-800 rounded-lg p-3 border border-gray-700">
+          <div className="text-xs text-gray-500">Gross Rental Yield</div>
+          <div className="text-lg font-mono font-bold text-indigo-400">
+            {((monthlyRent * 12) / propertyValue * 100).toFixed(2)}%
+          </div>
+        </div>
+        <div className="bg-gray-800 rounded-lg p-3 border border-gray-700">
+          <div className="text-xs text-gray-500">LVR</div>
+          <div className="text-lg font-mono font-bold text-gray-200">
+            {((loanBalance / propertyValue) * 100).toFixed(1)}%
+          </div>
+        </div>
+        <div className="bg-gray-800 rounded-lg p-3 border border-gray-700">
+          <div className="text-xs text-gray-500">Break-even Rate</div>
+          <div className="text-lg font-mono font-bold text-emerald-400">
+            {(() => {
+              // Binary search for break-even rate
+              let lo = 0, hi = 15;
+              for (let i = 0; i < 50; i++) {
+                const mid = (lo + hi) / 2;
+                const c = calcMonthly(mid);
+                if (c.shortfall > 0) hi = mid;
+                else lo = mid;
+              }
+              return ((lo + hi) / 2).toFixed(2);
+            })()}%
+          </div>
+        </div>
       </div>
     </div>
   );

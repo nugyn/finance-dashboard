@@ -125,7 +125,7 @@ export default function DashboardClient({
     <div className="min-h-screen bg-gray-900 text-gray-100">
       {/* Top nav */}
       <div className="border-b border-gray-800">
-        <div className="max-w-6xl mx-auto px-4 flex items-center gap-6 h-14">
+        <div className="max-w-6xl mx-auto px-4 flex items-center gap-4 sm:gap-6 h-14 overflow-x-auto">
           <Link href="/" className="text-sm text-gray-400 hover:text-gray-200 transition-colors">
             Property Calculator
           </Link>
@@ -158,6 +158,12 @@ export default function DashboardClient({
             >
               {importing ? "Importing…" : "Import xlsx"}
             </button>
+            <a
+              href="/api/export/finance"
+              className="text-xs px-3 py-1.5 border border-gray-600 text-gray-400 hover:text-gray-200 hover:border-gray-400 rounded transition-colors"
+            >
+              Export CSV
+            </a>
           </div>
         </div>
       </div>

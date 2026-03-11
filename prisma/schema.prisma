@@ -21,6 +21,7 @@ model Indicator {
   alertEnabled Boolean    @default(true)
   snapshots    Snapshot[]
   alerts       Alert[]
+  annotations  Annotation[]
 }
 
 model Snapshot {
@@ -40,6 +41,14 @@ model Alert {
   message     String
   sentAt      DateTime  @default(now())
   indicator   Indicator @relation(fields: [indicatorId], references: [id])
+}
+
+model Annotation {
+  id          Int       @id @default(autoincrement())
+  indicatorId Int?
+  text        String
+  date        DateTime  @default(now())
+  indicator   Indicator? @relation(fields: [indicatorId], references: [id])
 }
 
 // Monthly snapshot from History sheet — the time-series backbone

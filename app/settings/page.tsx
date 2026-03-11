@@ -178,7 +178,7 @@ export default function SettingsPage() {
     <div className="min-h-screen bg-gray-900 text-gray-100">
       {/* Top nav */}
       <div className="border-b border-gray-800">
-        <div className="max-w-5xl mx-auto px-4 flex items-center gap-6 h-14">
+        <div className="max-w-5xl mx-auto px-4 flex items-center gap-4 sm:gap-6 h-14 overflow-x-auto">
           <Link href="/" className="text-sm text-gray-400 hover:text-gray-200 transition-colors">
             Property Calculator
           </Link>
@@ -343,7 +343,7 @@ export default function SettingsPage() {
             )}
             {alerts.length > 0 && (
               <div className="space-y-1">
-                <div className="grid grid-cols-[120px_1fr_80px] gap-2 px-3 py-2 text-xs text-gray-500 uppercase tracking-wider border-b border-gray-800">
+                <div className="grid grid-cols-[auto_1fr_auto] gap-2 px-3 py-2 text-xs text-gray-500 uppercase tracking-wider border-b border-gray-800">
                   <span>Date</span>
                   <span>Message</span>
                   <span className="text-right">Signal</span>
@@ -354,7 +354,7 @@ export default function SettingsPage() {
                   return (
                     <div
                       key={alert.id}
-                      className="grid grid-cols-[120px_1fr_80px] gap-2 px-3 py-2 text-sm border-b border-gray-800/50 hover:bg-gray-800/30"
+                      className="grid grid-cols-[auto_1fr_auto] gap-2 px-3 py-2 text-sm border-b border-gray-800/50 hover:bg-gray-800/30"
                     >
                       <span className="text-xs text-gray-500 font-mono">
                         {new Date(alert.sentAt).toLocaleDateString("en-AU", {
