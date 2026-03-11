@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import IndicatorCard, { type Signal } from "@/components/IndicatorCard";
-import SparklineChart from "@/components/SparklineChart";
+import TrendChart from "@/components/TrendChart";
 import Link from "next/link";
 
 interface Snapshot {
@@ -27,7 +27,7 @@ interface IndicatorWithHistory extends IndicatorWithLatest {
   snapshots: Snapshot[];
 }
 
-type SubTab = "local" | "economic" | "trends";
+type SubTab = "local" | "economic" | "trends" | "history";
 
 const SIGNAL_COLORS: Record<string, string> = {
   ok: "#34d399",
@@ -41,11 +41,21 @@ export default function MarketIndicatorsPage() {
   const [activeTab, setActiveTab] = useState<SubTab>("local");
   const [loading, setLoading] = useState(true);
 
-  const fetchIndicators = useCallback(async () => {
+  const fetchAll = useCallback(async () => {
     try {
       const res = await fetch("/api/indicators");
       const data: IndicatorWithLatest[] = await res.json();
       setIndicators(data);
+
+      const historyMap: Record<string, IndicatorWithHistory> = {};
+      await Promise.all(
+        data.map(async (ind) => {
+          const r = await fetch(`/api/indicators/${ind.key}`);
+          const detail: IndicatorWithHistory = await r.json();
+          historyMap[ind.key] = detail;
+        })
+      );
+      setHistory(historyMap);
     } catch (err) {
       console.error("Failed to fetch indicators:", err);
     } finally {
@@ -53,30 +63,9 @@ export default function MarketIndicatorsPage() {
     }
   }, []);
 
-  const fetchHistory = useCallback(async () => {
-    const res = await fetch("/api/indicators");
-    const data: IndicatorWithLatest[] = await res.json();
-
-    const historyMap: Record<string, IndicatorWithHistory> = {};
-    await Promise.all(
-      data.map(async (ind) => {
-        const r = await fetch(`/api/indicators/${ind.key}`);
-        const detail: IndicatorWithHistory = await r.json();
-        historyMap[ind.key] = detail;
-      })
-    );
-    setHistory(historyMap);
-  }, []);
-
   useEffect(() => {
-    fetchIndicators();
-  }, [fetchIndicators]);
-
-  useEffect(() => {
-    if (activeTab === "trends") {
-      fetchHistory();
-    }
-  }, [activeTab, fetchHistory]);
+    fetchAll();
+  }, [fetchAll]);
 
   function handleRefresh(key: string, newValue: number, signal: Signal) {
     setIndicators((prev) =>
@@ -104,6 +93,7 @@ export default function MarketIndicatorsPage() {
     { id: "local", label: "Local Market" },
     { id: "economic", label: "Economic" },
     { id: "trends", label: "Trends" },
+    { id: "history", label: "Signal History" },
   ];
 
   const signalCounts = indicators.reduce(
@@ -210,6 +200,7 @@ export default function MarketIndicatorsPage() {
                   unit={ind.unit}
                   signal={(ind.latest?.signal as Signal) ?? null}
                   lastFetched={ind.latest?.fetchedAt ?? null}
+                  snapshots={history[ind.key]?.snapshots}
                   onRefresh={handleRefresh}
                 />
               ))}
@@ -237,6 +228,7 @@ export default function MarketIndicatorsPage() {
                   unit={ind.unit}
                   signal={(ind.latest?.signal as Signal) ?? null}
                   lastFetched={ind.latest?.fetchedAt ?? null}
+                  snapshots={history[ind.key]?.snapshots}
                   onRefresh={handleRefresh}
                 />
               ))}
@@ -264,11 +256,11 @@ export default function MarketIndicatorsPage() {
 
                 return (
                   <div key={ind.key} className="bg-gray-800/60 rounded-lg p-4 border border-gray-700">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-medium text-gray-300">{ind.label}</span>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-gray-200">{ind.label}</span>
                       {latest && (
                         <span
-                          className="text-xs font-mono font-bold"
+                          className="text-sm font-mono font-bold"
                           style={{ color }}
                         >
                           {ind.unit === "$"
@@ -279,19 +271,100 @@ export default function MarketIndicatorsPage() {
                         </span>
                       )}
                     </div>
-                    <SparklineChart
+                    <TrendChart
                       data={ind.snapshots}
                       color={color}
                       label={ind.label}
                       unit={ind.unit}
                     />
-                    <div className="text-xs text-gray-600 mt-1">
+                    <div className="text-xs text-gray-600 mt-2">
                       {ind.snapshots.length} snapshot{ind.snapshots.length !== 1 ? "s" : ""}
                     </div>
                   </div>
                 );
               })}
             </div>
+          </div>
+        )}
+
+        {/* Signal History tab */}
+        {activeTab === "history" && (
+          <div>
+            {Object.keys(history).length === 0 && (
+              <div className="text-gray-500 text-sm">Loading signal history...</div>
+            )}
+            {Object.keys(history).length > 0 && (() => {
+              const allEvents = Object.values(history).flatMap((ind) =>
+                ind.snapshots.map((snap) => ({
+                  key: ind.key,
+                  label: ind.label,
+                  unit: ind.unit,
+                  value: snap.value,
+                  signal: snap.signal as Signal,
+                  fetchedAt: snap.fetchedAt,
+                }))
+              );
+              allEvents.sort(
+                (a, b) => new Date(b.fetchedAt).getTime() - new Date(a.fetchedAt).getTime()
+              );
+
+              return (
+                <div className="space-y-1">
+                  <div className="grid grid-cols-[1fr_2fr_1fr_1fr] gap-2 px-3 py-2 text-xs text-gray-500 uppercase tracking-wider border-b border-gray-800">
+                    <span>Date</span>
+                    <span>Indicator</span>
+                    <span className="text-right">Value</span>
+                    <span className="text-right">Signal</span>
+                  </div>
+                  {allEvents.map((evt, i) => {
+                    const signalColor = SIGNAL_COLORS[evt.signal] ?? "#818cf8";
+                    const signalLabel = evt.signal === "ok" ? "OK" : evt.signal === "warn" ? "Warning" : "Alert";
+                    return (
+                      <div
+                        key={`${evt.key}-${i}`}
+                        className="grid grid-cols-[1fr_2fr_1fr_1fr] gap-2 px-3 py-2 text-sm border-b border-gray-800/50 hover:bg-gray-800/30"
+                      >
+                        <span className="text-xs text-gray-500 font-mono">
+                          {new Date(evt.fetchedAt).toLocaleDateString("en-AU", {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                          })}
+                        </span>
+                        <span className="text-gray-300">{evt.label}</span>
+                        <span className="text-right font-mono text-gray-200">
+                          {evt.unit === "$"
+                            ? `$${Math.round(evt.value).toLocaleString("en-AU")}`
+                            : evt.unit === "%"
+                            ? `${evt.value.toFixed(2)}%`
+                            : evt.value.toLocaleString("en-AU")}
+                        </span>
+                        <span className="text-right">
+                          <span
+                            className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full"
+                            style={{
+                              color: signalColor,
+                              backgroundColor: `${signalColor}15`,
+                            }}
+                          >
+                            <span
+                              className="w-1.5 h-1.5 rounded-full"
+                              style={{ backgroundColor: signalColor }}
+                            />
+                            {signalLabel}
+                          </span>
+                        </span>
+                      </div>
+                    );
+                  })}
+                  {allEvents.length === 0 && (
+                    <div className="text-gray-500 text-sm py-4 text-center">
+                      No snapshots recorded yet. Refresh indicators to build history.
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </div>
         )}
       </div>

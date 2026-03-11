@@ -1,8 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import SparklineChart from "./SparklineChart";
 
 export type Signal = "ok" | "warn" | "bad";
+
+interface SnapshotData {
+  value: number;
+  fetchedAt: string;
+}
 
 interface Props {
   indicatorKey: string;
@@ -11,6 +17,7 @@ interface Props {
   unit?: string | null;
   signal: Signal | null;
   lastFetched: string | null;
+  snapshots?: SnapshotData[];
   onRefresh?: (key: string, newValue: number, signal: Signal) => void;
 }
 
@@ -30,6 +37,12 @@ const SIGNAL_DOT: Record<Signal, string> = {
   ok: "bg-emerald-400",
   warn: "bg-yellow-400",
   bad: "bg-red-400",
+};
+
+const SIGNAL_HEX: Record<Signal, string> = {
+  ok: "#34d399",
+  warn: "#facc15",
+  bad: "#f87171",
 };
 
 function formatTimeAgo(dateStr: string): string {
@@ -60,6 +73,7 @@ export default function IndicatorCard({
   unit,
   signal,
   lastFetched,
+  snapshots,
   onRefresh,
 }: Props) {
   const [loading, setLoading] = useState(false);
@@ -136,6 +150,17 @@ export default function IndicatorCard({
       </div>
 
       {error && <div className="mt-2 text-xs text-red-400 truncate">{error}</div>}
+
+      {snapshots && snapshots.length >= 2 && (
+        <div className="mt-2 -mx-1">
+          <SparklineChart
+            data={snapshots}
+            color={SIGNAL_HEX[effectiveSignal]}
+            label={label}
+            unit={unit}
+          />
+        </div>
+      )}
     </div>
   );
 }
