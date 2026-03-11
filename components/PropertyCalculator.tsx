@@ -147,6 +147,12 @@ export default function PropertyCalculator() {
         >
           Dashboard
         </Link>
+        <Link
+          href="/settings"
+          className="text-sm text-gray-400 hover:text-gray-200 transition-colors"
+        >
+          Settings
+        </Link>
       </div>
 
       <div className="mb-6">

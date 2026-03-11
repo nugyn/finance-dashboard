@@ -138,6 +138,12 @@ export default function DashboardClient({
           <span className="text-sm font-medium text-indigo-400 border-b-2 border-indigo-400 pb-px h-full flex items-end leading-[3.5rem]">
             Dashboard
           </span>
+          <Link
+            href="/settings"
+            className="text-sm text-gray-400 hover:text-gray-200 transition-colors"
+          >
+            Settings
+          </Link>
           <div className="ml-auto flex items-center gap-3">
             <button
               onClick={() => setShowModal(true)}
